@@ -31,6 +31,18 @@ const App = () => {
     setNewNumber('')
   }
 
+  const removePerson = (person) =>{
+    if(
+      window.confirm(`Are you sure you want to delete ${person.name}?`)
+      )
+      {
+        personsService.remove(person.id)
+        .then(() => {
+          setPersons(persons.filter(removedPerson => removedPerson.id !== person.id))
+        })
+      }
+  }
+
   const handleNameInput = (event) => {
     setNewName(event.target.value)
   }
@@ -56,7 +68,7 @@ const App = () => {
         numberOnChange={handlePhoneInput} 
       />
       <h2>Numbers</h2>
-      <PersonList persons={persons} filter={filter}/>
+      <PersonList persons={persons} filter={filter} removePerson={removePerson}/>
     </div>
   )
 
