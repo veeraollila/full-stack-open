@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import personsService from './services/persons'
+import personService from './services/persons'
 import Filter from './components/FilterNames'
 import PersonForm from './components/PersonForm'
 import PersonList from './components/PersonList'
@@ -11,18 +11,28 @@ const App = () => {
   const [filter, setFilter] = useState('')
 
   useEffect(() =>{
-    personsService.getAll()
+    personService.getAll()
     .then(returnedPersons => setPersons(returnedPersons))})
 
   const addPerson = (event) =>{
     event.preventDefault()
     const newPerson = {name: newName, number: newNumber}
-    if(persons.find((person) => person.name.toLowerCase() === newName.toLowerCase()))
-      alert(`Person ${newName} already exists!`)
+    const personToUpdate = persons.find((person) => person.name.toLowerCase() === newName.toLowerCase())
+    console.log("personToUpdate: ", personToUpdate)
+    if(personToUpdate){
+      if(
+        window.confirm(`Person ${newName} already exists! Do you want to update their number?`)
+      ){
+        personService.update(personToUpdate.id, newPerson)
+        .then(returnedPerson => {
+          setPersons(persons.map(p => p.id !== personToUpdate.id ? p : returnedPerson))
+        })
+      }
+    }
     else if(persons.find((person) => person.number === newNumber))
       alert(`Number ${newNumber} already exists!`)
     else{
-      personsService.create(newPerson)
+      personService.create(newPerson)
       .then(returnedPerson => {
         setPersons(persons.concat(returnedPerson))
       })
@@ -36,7 +46,7 @@ const App = () => {
       window.confirm(`Are you sure you want to delete ${person.name}?`)
       )
       {
-        personsService.remove(person.id)
+        personService.remove(person.id)
         .then(() => {
           setPersons(persons.filter(removedPerson => removedPerson.id !== person.id))
         })
