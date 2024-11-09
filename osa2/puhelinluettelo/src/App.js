@@ -1,19 +1,18 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import personsService from './services/persons'
 import Filter from './components/FilterNames'
 import PersonForm from './components/PersonForm'
 import PersonList from './components/PersonList'
 
 const App = () => {
-  const [persons, setPersons] = useState([
-    { name: 'Arto Hellas', number: '040-123456' },
-    { name: 'Ada Lovelace', number: '39-44-5323523' },
-    { name: 'Dan Abramov', number: '12-43-234345' },
-    { name: 'Mary Poppendieck', number: '39-23-6423122' }
-  ])
-
+  const [persons, setPersons] = useState([])
   const [newName, setNewName] = useState('')
   const [newNumber, setNewNumber] = useState('')
   const [filter, setFilter] = useState('')
+
+  useEffect(() =>{
+    personsService.getAll()
+    .then(returnedPersons => setPersons(returnedPersons))})
 
   const addPerson = (event) =>{
     event.preventDefault()
@@ -22,8 +21,12 @@ const App = () => {
       alert(`Person ${newName} already exists!`)
     else if(persons.find((person) => person.number === newNumber))
       alert(`Number ${newNumber} already exists!`)
-    else
-      setPersons(persons.concat(newPerson))
+    else{
+      personsService.create(newPerson)
+      .then(returnedPerson => {
+        setPersons(persons.concat(returnedPerson))
+      })
+    }
     setNewName('')
     setNewNumber('')
   }
