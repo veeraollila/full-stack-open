@@ -1,96 +1,185 @@
-import { useState, useEffect } from 'react'
-import personService from './services/persons'
-import Filter from './components/FilterNames'
-import PersonForm from './components/PersonForm'
-import PersonList from './components/PersonList'
-import Notification from './components/Notification'
+import { useEffect, useState } from 'react'
+import { getAll, create, updateContact, deleteContact } from './components/contactService'
 
-const App = () => {
-  const [persons, setPersons] = useState([])
-  const [newName, setNewName] = useState('')
-  const [newNumber, setNewNumber] = useState('')
-  const [filter, setFilter] = useState('')
-  const [message, setMessage] = useState(null)
+// Filter component
+const Filter = ({ searchTerm, handleSearchChange }) => (
+  <div>
+  Search: <input value={searchTerm} onChange={handleSearchChange} />
+  </div>
+)
 
-  useEffect(() =>{
-    personService.getAll()
-    .then(returnedPersons => setPersons(returnedPersons))})
+// PersonForm component
+const PersonForm = ({ newName, newNumber, handleNameChange, handleNumberChange, handleConcat }) => (
+  <form onSubmit={handleConcat}>
+  <div>
+  Name: <input value={newName} onChange={handleNameChange}/>
+  </div>
+  <div>
+  Number: <input value={newNumber} onChange={handleNumberChange}/>
+  </div>
+  <div>
+  <button type="submit">Add</button>
+  </div>
+  </form>
+)
 
-  const addPerson = (event) =>{
-    event.preventDefault()
-    const newPerson = {name: newName, number: newNumber}
-    const personToUpdate = persons.find((person) => person.name.toLowerCase() === newName.toLowerCase())
-    console.log("personToUpdate: ", personToUpdate)
-    if(personToUpdate){
-      if(
-        window.confirm(`Person ${newName} already exists! Do you want to update their number?`)
-      ){
-        personService.update(personToUpdate.id, newPerson)
-        .then(returnedPerson => {
-          setPersons(persons.map(p => p.id !== personToUpdate.id ? p : returnedPerson))
-          setMessage(`Update ${newName} number to: ${newNumber}`)
-          setTimeout(() => {setMessage(null)}, 3000)
-        })
-      }
-    }
-    else if(persons.find((person) => person.number === newNumber))
-      alert(`Number ${newNumber} already exists!`)
-    else{
-      personService.create(newPerson)
-      .then(returnedPerson => {
-        setMessage(`Added ${newName}`)
-        setPersons(persons.concat(returnedPerson))
-        setTimeout(() => {setMessage(null)}, 3000)
-      })
-    }
-    setNewName('')
-    setNewNumber('')
-  }
+// Persons component
+const Persons = ({ contacts, handleCheckboxChange }) => (
+  <div>
+  {contacts.map((contact, index) => (
+    <p key={index}>
+    <input type="checkbox" onChange={(event) => handleCheckboxChange(contact.id, event.target.checked)} />
+    {contact.name}: {contact.number}
+    </p>
+  ))}
+  </div>
+)
 
-  const removePerson = (person) =>{
-    if(
-      window.confirm(`Are you sure you want to delete ${person.name}?`)
-      )
-      {
-        personService.remove(person.id)
-        .then(() => {
-          setPersons(persons.filter(removedPerson => removedPerson.id !== person.id))
-          setMessage(`Removed ${person.name} `)
-          setTimeout(() => {setMessage(null)}, 3000)
-        })
-      }
-  }
-
-  const handleNameInput = (event) => {
-    setNewName(event.target.value)
-  }
-
-  const handlePhoneInput = (event) =>{
-    setNewNumber(event.target.value)
-  }
-
-  const handleFilterInput = (event) =>{
-    setFilter(event.target.value)
-  }
-
+const NotificationWrapper = ({ message, children }) => {
   return (
-    <div>
-      <h2>Phonebook</h2>
-      <Notification message={message} />
-      <Filter value={filter} onChange={handleFilterInput} />
-      <h2>Add Person</h2>
-      <PersonForm 
-        onSubmit={addPerson} 
-        nameValue={newName} 
-        nameOnChange={handleNameInput} 
-        numberValue={newNumber} 
-        numberOnChange={handlePhoneInput} 
-      />
-      <h2>Numbers</h2>
-      <PersonList persons={persons} filter={filter} removePerson={removePerson}/>
+    <div style={{ minHeight: '50px' }}>
+    {message ? children : null}
     </div>
   )
+}
 
+const Notification = ({ message }) => {
+  if (message === null) {
+    return null
+  }
+  
+  return (
+    <div className="notification">
+    {message}
+    </div>
+  )
+}
+
+const ErrorNotification = ({ message }) => {
+  if (message === null) {
+    return null
+  }
+  
+  return (
+    <div className="error">
+    {message}
+    </div>
+  )
+}
+
+
+const App = () => {
+  const [contacts, setContacts] = useState([]) 
+  const [newName, setNewName] = useState('')
+  const [newNumber, setNewNumber] = useState('')
+  const [searchTerm, setSearchTerm] = useState('')
+  const [selectedContacts, setSelectedContacts] = useState([])
+  const [notification, setNotification] = useState(null)
+  const [error, setError] = useState(null)
+  
+  useEffect(() => {
+    getAll()
+    .then(response => {
+      setContacts(response.data);
+    })
+  }, [])
+  
+  const handleCheckboxChange = (id, isChecked) => {
+    setSelectedContacts(prevSelectedContacts =>
+      isChecked
+      ? [...prevSelectedContacts, id]
+      : prevSelectedContacts.filter(contactId => contactId !== id)
+    )
+  }
+  
+  const handleDeleteSelected = () => {
+    if (selectedContacts.length > 0) {
+      if (window.confirm("Are you sure you want to delete the selected contacts?")) {
+        const promises = selectedContacts.map(id => deleteContact(id))
+        const deletedNames = selectedContacts.map(id => contacts.find(contact => contact.id === id).name).join(', ')
+        Promise.all(promises)
+        .then(() => {
+          setContacts(contacts.filter(contact => !selectedContacts.includes(contact.id)))
+          setSelectedContacts([])
+          setNotification(`Deleted ${deletedNames}`)
+          setTimeout(() => {
+            setNotification(null)
+          }, 5000)
+        })
+      }
+    }
+  }
+  
+  const handleConcat = (event) => {
+    event.preventDefault();
+    const existingContact = contacts.find(contact => contact.name === newName);
+    
+    if (existingContact) {
+      if (window.confirm(`${newName} is already added to phonebook, replace the old number with a new one?`)) {
+        const updatedContact = { ...existingContact, number: newNumber };
+        updateContact(existingContact.id, updatedContact)
+        .then(response => {
+          setContacts(contacts.map(contact => contact.id !== existingContact.id ? contact : response.data));
+          setNotification(`Updated ${newName}'s number`)
+          setTimeout(() => {
+            setNotification(null)
+          }, 5000)
+        })
+        .catch(error => {
+          setError(`Information of ${newName} has already been removed from server`)
+          setTimeout(() => {
+            setError(null)
+          }, 5000)
+          setContacts(contacts.filter(contact => contact.id !== existingContact.id))
+        })
+      }
+    } else {
+      const newContact = { name: newName, number: newNumber }
+      create(newContact)
+      .then(response => {
+        setContacts(contacts.concat(response.data));
+        setNewName('');
+        setNewNumber('');
+        setNotification(`Added ${newName}`)
+        setTimeout(() => {
+          setNotification(null)
+        }, 5000)
+      })
+    }
+  }
+  
+  const handleNameChange = (event) => {
+    setNewName(event.target.value);
+  }
+  const handleNumberChange = (event) => {
+    setNewNumber(event.target.value);
+  }
+  const handleSearchChange = (event) => {
+    setSearchTerm(event.target.value);
+  }
+  const contactsToShow = searchTerm
+  ? contacts.filter(contact => contact.name.toLowerCase().includes(searchTerm.toLowerCase()))
+  : contacts
+  
+  
+  return (
+    <div className="app-container">
+    <div className="contacts-container">
+    <Persons contacts={contactsToShow} handleCheckboxChange={handleCheckboxChange} />
+    <button onClick={handleDeleteSelected}>Delete Selected</button>
+    </div>
+    <div className="controls-container">
+    <NotificationWrapper message={notification}>
+    <Notification message={notification} />
+    </NotificationWrapper>
+    <NotificationWrapper message={error}>
+    <ErrorNotification message={error} />
+    </NotificationWrapper>
+    <Filter searchTerm={searchTerm} handleSearchChange={handleSearchChange} />
+    <PersonForm newName={newName} newNumber={newNumber} handleNameChange={handleNameChange} handleNumberChange={handleNumberChange} handleConcat={handleConcat} />
+    </div>
+    </div>
+  )
 }
 
 export default App
