@@ -1,5 +1,9 @@
-#GET 
+POST http://localhost:3003/api/blogs HTTP/1.1
+content-type: application/json
 
-###
-
-#POST
+{
+    "title": "test",
+    "author": "Matti Meikäläinen",
+    "url": "https://kela.fi",
+    "likes": 1
+}
